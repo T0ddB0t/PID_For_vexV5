@@ -1,4 +1,4 @@
- /*----------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------*/
 /*  Module:       main.cpp                                                    */
 /*    Author:       Franky                                                    */
 /*    Created:      Thu Sep 26 2022                                           */
@@ -12,8 +12,10 @@
 // RIGHT                encoder       A, B            
 // LEFT                 encoder       C, D            
 // CENTER               encoder       E, F            
-// Drivetrain           drivetrain    1, 10, 11, 20   
-// TEST1                motor         2               
+// TEST1                motor         14              
+// LEFT1                motor_group   1, 10           
+// RIGHT1               motor_group   11, 20          
+// Drivetrain           drivetrain    2, 3            
 // ---- END VEXCODE CONFIGURED DEVICES ----
 
 #include "vex.h"
@@ -23,44 +25,62 @@ using namespace std;
 // A global instance of competition
 competition Competition;
 // Code that the author wrote
-class pid {
+class PID{  
 public:
+//Get the encoder PID to work then the IMU sensor
   double out;
   double out1;
-  double pre_er;
-  void pidFWBK(double sp, double pv, double Kp, double Ki, double Kd /*, double max, double min*/) {
+  void pidFWBK(double sp, double speed, double Kp, double Ki, double Kd) {
     // do i try a if statement to see if the LEFT/RIGHT encoders are equal?
     // I would find the diffrence and add || subtract it to the er
-    if (LEFT.position(degrees) != RIGHT.position(degrees)) {
-    }
-    while (pv > sp) {
-      double er = sp - pv;
-      double integ = 0;
-      integ += er;
-      double der = (er - pre_er);
+    double er = sp - TEST1.position(rev);
+    double integ;
+    double der;
+    double pre_er;
+    double uT = 0;
+    while(sp > TEST1.position(rev)){
+      er = sp - TEST1.position(rev);
+      integ = integ + er;
+      if(er == 0 || fabs(er) <= sp){
+			  integ = 0;
+		  }
+      der = er - pre_er;
       // final step
+     // Brain.Screen.print(er);
       double Pout = Kp * er;
       double Iout = Ki * integ;
       double Dout = Kd * der;
-      double uT = Pout + Iout - Dout;
-      // Makes the bot go back or forward
+      uT = Pout + Iout + Dout;
+      // makes the move
       /*
-     L1.spinFor(forward, uT, degrees);
-     R1.spinFor(forward, -uT, degrees);
-     R2.spinFor(forward, -uT, degrees);
-     L2.spinFor(forward, uT, degrees);
-     */
-      Drivetrain.driveFor(uT, inches);
+      R1.spinFor(forward, uT,degrees),
+      L2.spinFor(forward, uT,degrees),
+      L1.spinFor(forward, uT,degrees),
+      L2.spinFor(forward, uT,degrees);
+      */
       pre_er = er;
-    }
+      
+      Brain.Screen.print(uT);
+      //Brain.Screen.print(" ");
+      if(sp == TEST1.position(degrees)){ 
+        TEST1.setVelocity(0, pct);
+        TEST1.spinFor(uT, rev);
+      }else{
+        TEST1.setVelocity(speed, pct);
+        TEST1.spinFor(uT, rev);
+      }
+      //wait(5, msec);
+      //Drivetrain.turnFor(right, uT, degrees);
 
+    }
   }
-  void pidSIDE(int sp, /*int pv*/ double Kp, double Ki, double Kd /*,double max, double min*/) {
-    double er = sp - CENTER.position(degrees);
+  void pidSIDE(int sp, /*int pv*/ double Kp, double Ki, double Kd ,double max, double min) {
+    double er = sp + CENTER.position(degrees);
     double integ;
     double der;
+    double pre_er;
     double uT = 0;
-    while (fabs(er) > uT) {
+    while (fabs(er) < sp) {
       er = sp - CENTER.position(degrees);
       integ = integ + er;
       if(er == 0 || fabs(er) >= sp){
@@ -72,7 +92,7 @@ public:
       double Pout = Kp * er;
       double Iout = Ki * integ;
       double Dout = Kd * der;
-      double uT = Pout + Iout + Dout;
+      uT = Pout + Iout + Dout;
       // makes the bot turn
       /*
       R1.spinFor(forward, uT,degrees),
@@ -80,11 +100,11 @@ public:
       L1.spinFor(forward, uT,degrees),
       L2.spinFor(forward, uT,degrees);
       */
-
+      Brain.Screen.print(uT);
+      Brain.Screen.print(" ");
       TEST1.spinFor(uT, degrees);
       wait(15, msec);
-      //Drivetrain.turnFor(right, uT, degrees);
-      
+      //Drivetrain.turnFor(right, uT, degrees); 
     }
   }
 };
@@ -105,9 +125,10 @@ void pre_auton(void) {
   vexcodeInit();
   // All activities that occur before the competition starts
   // Example: clearing encoders, setting servo positions, ...
-  LEFT.setPosition(0, degrees);
-  RIGHT.setPosition(0, degrees);
-  CENTER.setPosition(0, degrees);
+  //LEFT.setPosition(0, degrees);
+  //RIGHT.setPosition(0, degrees);
+  //CENTER.setPosition(0, degrees);
+  TEST1.setPosition(0, degrees);
 }
 
 /*---------------------------------------------------------------------------*/
@@ -121,20 +142,18 @@ void pre_auton(void) {
 /*---------------------------------------------------------------------------*/
 
 void auton(void) {
+  pre_auton();
   // ..........................................................................
   // Insert autonomous user code here.
   // ..........................................................................
-
-  // pidFW,sp,pv,Kp,Ki,Kd,max,min)
-  // pidSI,sp,pv,Kp,Ki,Kd,max,min)
-  pid p;
-  // problem is prob because it doesnt have a thing to check wether or not it
-  // done executing like the drivetrain class functions
-  // p.pidFWBK(10, 0, .1, .001, 5.5);
-  p.pidSIDE(90, .1, .001, 5.5);
+  // pidFWBK(sp,speed,Kp,Ki,Kd)
+  // pidSIDE(sp,speed,Kp,Ki,Kd)
+  PID pid;
+  //pid.pidFWBK(10, 0, .1, .001, 5.5);
+  pid.pidFWBK(30, 40, .4, .49, .45);
   //TEST1.spinFor(90, degrees);
   //Drivetrain.turnFor(left, 90, degrees);
-  // p.pidFWBK(10, 0, .1, .001, 5.5);
+  // pid.pidFWBK(10, 0, .1, .001, 5.5);
   while (1) {
     wait(20, msec); // Sleep the task for a short amount of time to
                     // prevent wasted resources.
@@ -160,7 +179,7 @@ int main() {
   Competition.drivercontrol(usercontrol);
   // Run the pre-autonomous function.
   //usercontrol();
-  //pre_auton();
+  pre_auton();
   auton();
   
   // Prevent main from exiting with an infinite loop.
