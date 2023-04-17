@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------------*/
-/*  Module:       main.cpp                                                    */
+/*    Module:       main.cpp                                                  */
 /*    Author:       Franky                                                    */
 /*    Created:      Thu Sep 26 2022                                           */
 /*    Description:  ARGGGGGGGGGGGGGGGGGG                                      */
@@ -8,43 +8,46 @@
 //
 // ---- START VEXCODE CONFIGURED DEVICES ----
 // Robot Configuration:
-// [Name]               [Type]        [Port(s)]
-// RIGHT                encoder       A, B            
-// LEFT                 encoder       C, D            
-// TEST1               encoder       E, F            
+// [Name?]               [Type?]        [Port(s)??????]
+// CENTER               encoder       A, B            
 // TEST1                motor         14              
-// LEFT1                motor_group   1, 10           
-// RIGHT1               motor_group   11, 20          
-// Drivetrain           drivetrain    2, 3            
+// TEST2                motor_group   2, 3            
+// IMU                  inertial      18              
+// Controller1          controller                    
+// Drivetrain           drivetrain    1, 10, 11, 20   
 // ---- END VEXCODE CONFIGURED DEVICES ----
 
 #include "vex.h"
-#include <iostream>
+#include <math.h>
+//#include <iostream>
 using namespace vex;
-using namespace std;
+//using namespace std;
 // A global instance of competition
 competition Competition;
 // Code that the author wrote
 class PID{  
 public:
 //Get the encoder PID to work then the IMU sensor
-  double out;
-  double out1;
-  float Kp = .48f;
-  float Ki = .40f;
-  float Kd = .45f;
+  float Kp;
+  float Ki;
+  float Kd;
+
   void pidFWBK(double sp, double speed) {
-    // do i try a if statement to see if the LEFT/RIGHT encoders are equal?
-    // I would find the diffrence and add || subtract it to the er
+    //just have the encoder in the middle of the bot
     CENTER.setPosition(0, rev);
-    double er = sp - CENTER.position(rev);
+    double er;
+    //double pv; 
+    //double i;
     double integ;
     double der;
     double pre_er;
     double uT = 0;
-    if(sp > CENTER.position(rev)){
-      while(sp > CENTER.position(rev)){
-        er = sp - CENTER.position(rev);
+    double pv = CENTER.position(rev) * 1/13.1875/25.4;
+    //sp *= (1/13.1875);
+    if(sp > pv){
+      //sp *= ((1/13.1875)/25.4);
+      while(sp > pv){
+        er = sp - pv;
         integ = integ + er;
         if(er == 0 || fabs(er) <= sp){
 			    integ = 0;
@@ -57,25 +60,24 @@ public:
         double Dout = Kd * der;
         uT = Pout + Iout + Dout;
         // makes the move
-        /*
-        R1.spinFor(forward, uT,degrees),
-        L2.spinFor(forward, uT,degrees),
-        L1.spinFor(forward, uT,degrees),
-        L2.spinFor(forward, uT,degrees);
-        */
         pre_er = er;
       
         Brain.Screen.print(uT);
-        //Brain.Screen.print(" ");
-        TEST1.setVelocity(speed, rpm);
-        TEST1.spinFor(uT, rev);
-        //wait(5, msec);
-        //Drivetrain.turnFor(right, uT, degrees);
+        Brain.Screen.print(" ");
+        Drivetrain.setDriveVelocity(speed, rpm);
+        Drivetrain.driveFor(uT, inches);
+        if(sp == CENTER.position(rev)){
+          wait(60, msec);
+          if(sp == CENTER.position(rev)){
+            break;
+          }
+        }
       }
     }
-    if(sp < CENTER.position(rev)){
-      while(sp < CENTER.position(rev)){
-        er = sp - CENTER.position(rev);
+    if(sp < pv){
+      while(sp < pv){
+        er = sp - pv;
+        //sp *= (1/13.1875);
         integ = integ + er;
         if(er == 0 || fabs(er) <= sp){
 			    integ = 0;
@@ -88,32 +90,33 @@ public:
         double Dout = Kd * der;
         uT = Pout + Iout + Dout;
         // makes the move
-        /*
-        R1.spinFor(forward, uT,degrees),
-        L2.spinFor(forward, uT,degrees),
-        L1.spinFor(forward, uT,degrees),
-        L2.spinFor(forward, uT,degrees);
-        */
         pre_er = er;
-      
+
         Brain.Screen.print(uT);
-        //Brain.Screen.print(" ");
-        TEST1.setVelocity(speed, rpm);
-        TEST1.spinFor(uT, rev);
+        Brain.Screen.print(" ");
+        Drivetrain.setDriveVelocity(speed, rpm);
+        Drivetrain.driveFor(uT, inches);
         //wait(5, msec);
-        //Drivetrain.turnFor(right, uT, degrees);
+        //TEST2.turnFor(right, uT, rev);
+        if(sp == CENTER.position(rev)){
+          wait(60, msec);
+          if(sp == CENTER.position(rev)){
+            break;
+          }
+        }
       }
     }
   }
   //going to use the IMU sensor for turning 
-  void pidSIDE(int sp ){
-    double er = sp + TEST1.position(degrees);
+  void pidSIDE(double sp, double speed){
+    double er = sp - IMU.angle(degrees);
     double integ;
     double der;
     double pre_er;
     double uT = 0;
-    while (fabs(er) < sp) {
-      er = sp - TEST1.position(degrees);
+    
+    while (sp > IMU.angle(degrees)){
+      er = sp - IMU.angle(degrees);
       integ = integ + er;
       if(er == 0 || fabs(er) >= sp){
 			  integ = 0;
@@ -126,17 +129,13 @@ public:
       double Dout = Kd * der;
       uT = Pout + Iout + Dout;
       // makes the bot turn
-      /*
-      R1.spinFor(forward, uT,degrees),
-      L2.spinFor(forward, uT,degrees),
-      L1.spinFor(forward, uT,degrees),
-      L2.spinFor(forward, uT,degrees);
-      */
+
       Brain.Screen.print(uT);
       Brain.Screen.print(" ");
-      TEST1.spinFor(uT, degrees);
-      wait(15, msec);
-      //Drivetrain.turnFor(right, uT, degrees); 
+      Drivetrain.turnFor(uT, degrees);
+      if(sp == IMU.angle(rev)){
+        break;
+      }
     }
   }
 };
@@ -151,16 +150,18 @@ public:
 /*  function is only called once after the V5 has been powered on and        */
 /*  not every time that the robot is disabled.                               */
 /*---------------------------------------------------------------------------*/
-
+PID pid;
 void pre_auton(void) {
   // Initializing Robot Configuration. DO NOT REMOVE!
   vexcodeInit();
   // All activities that occur before the competition starts
-  // Example: clearing encoders, setting servo positions, ...
-  //LEFT.setPosition(0, degrees);
-  //RIGHT.setPosition(0, degrees);
-  //TEST1.setPosition(0, degrees);
-  TEST1.setPosition(0, degrees);
+  // Example: clearing encoders, setting servo positions, ... 
+  //TEST1.setPosition(0, rev);
+  CENTER.setPosition(0, rev);
+  IMU.calibrate();
+  pid.Kp = 2.3f;
+  pid.Ki = 1.3f;
+  pid.Kd = 2.0f;
 }
 
 /*---------------------------------------------------------------------------*/
@@ -178,28 +179,17 @@ void auton(void) {
   // ..........................................................................
   // Insert autonomous user code here.
   // ..........................................................................
-  // pidFWBK(sp,speed,Kp,Ki,Kd)
-  // pidSIDE(sp,speed,Kp,Ki,Kd)
-  PID pid;
+  // pid.pidFWBK(setpoint, speed);
+  // pid.pidSIDE(setpoint, speed); 
 
-  //pid.pidFWBK(10, 0, .1, .001, 5.5);
-  //int set = 0;
-  pid.pidFWBK(10, 100);
-  pid.pidFWBK(5, 60);
-  
-  //TEST1.spinFor(90, degrees);
-  //Drivetrain.turnFor(left, 90, degrees);
-  // pid.pidFWBK(10, 0, .1, .001, 5.5);
+  pid.pidFWBK(300, 70);
+  //pid.pidFWBK(0, 50);
+  //Drivetrain.driveFor(forward, 10, mm);
   while (1) {
     wait(20, msec); // Sleep the task for a short amount of time to prevent wasted resources.
   }
 }
-////////////////////
-//  box of info   //
-//                //
-//                //
 // driver stuff   //
-////////////////////
 void usercontrol(void) {
   // User control code here, inside the loop
   while (1) {
